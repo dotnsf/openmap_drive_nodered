@@ -1,0 +1,204 @@
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>OpenMap Drive</title>
+<script src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet.css" />
+<script src="//cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet.js"></script>
+<script>
+//. 鈴鹿サーキットの緯度経度（初期中心位置）
+var lat = 34.8431714;
+var lng = 136.5404776;
+
+//. 初期ズームレベルと初期角度（何時の方角）
+var zoomlevel = 19;  //. Max:19
+var anglelevel = 5;
+var speed = 0;
+
+var map = null;
+
+var socket;
+var wsUrl = 'wss://' + location.hostname + '/ws/sensor';
+var wsUrlL = 'wss://' + location.hostname + '/ws/sensorL';
+var wsUrlR = 'wss://' + location.hostname + '/ws/sensorR';
+
+$(function(){
+    socket = new WebSocket( wsUrl );
+    socket.onmessage = function( e ){
+        var sensorData = JSON.parse( e.data );
+        var obj = sensorData.d;
+        console.log( obj );
+        
+        //. http://dotnsf.github.io/myphonesensor 利用時を想定
+        if( obj.ori.tiltFB > 135.0 ){
+            steering_left();
+        }else if( obj.ori.tiltFB < 45.0 ){
+            steering_right();
+        }
+    };
+    socketL = new WebSocket( wsUrlL );
+    socketL.onmessage = function( e ){
+        var sensorData = JSON.parse( e.data );
+        var obj = sensorData.d;
+        if( Math.abs( obj.ac.x ) > 5.0 || Math.abs( obj.ac.y ) > 5.0 || Math.abs( obj.ac.z ) > 5.0 ){
+            steering_left();
+        }
+    };
+    socketR = new WebSocket( wsUrlR );
+    socketR.onmessage = function( e ){
+        var sensorData = JSON.parse( e.data );
+        var obj = sensorData.d;
+        if( Math.abs( obj.ac.x ) > 5.0 || Math.abs( obj.ac.y ) > 5.0 || Math.abs( obj.ac.z ) > 5.0 ){
+            steering_right();
+        }
+    };
+    
+	//. URL パラメータ
+	var urlparam = location.search;
+	if( urlparam && urlparam.length > 1 ){
+		var urlparams = urlparam.substr( 1 ).split('&');
+            urlparams.forEach( function( params ){
+			var tmp = params.split('=');
+			if( tmp[0] == 'lat' ){
+				lat = parseFloat( tmp[1] );
+			}else if( tmp[0] == 'lng' ){
+				lng = parseFloat( tmp[1] );
+			}else if( tmp[0] == 'anglelevel' ){
+				anglelevel = parseInt( tmp[1] );
+			}
+		});
+	}
+
+  //. keyboard
+  document.body.onkeydown = function( e ){
+    var keys = {
+      37: 'left',
+      //38: 'up',
+      39: 'right',
+      40: 'down'
+    };
+
+    if( typeof keys[e.keyCode] != 'undefined' ){
+      switch( keys[e.keyCode] ){
+      case 'left':
+        steering_left();
+        break;
+      case 'right':
+        steering_right();
+        break;
+      case 'down':
+        breaking();
+        break;
+      default:
+        break;
+      }
+    }
+  };
+
+  //. 初期位置を中心とした地図を OpenStreetMap データで表示
+  map = L.map('demoMap', { dragging: false, zoomControl: false, minZoom: zoomlevel, maxZoom: zoomlevel }).setView( [ lat, lng ], zoomlevel );
+  L.tileLayer(
+    'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; <a href="http://openstreetmap.org/">OpenStreetMap</a>',
+      maxZoom: zoomlevel
+    }
+  ).addTo( map );
+});
+
+function steering_left(){
+  anglelevel --;
+  if( anglelevel < 0 ){
+    anglelevel += 12;
+  }
+}
+
+function steering_right(){
+  anglelevel ++
+  if( anglelevel > 11 ){
+    anglelevel -= 12;
+  }
+}
+
+function breaking(){
+  speed = ( speed == 0 ? 1 : 0 );
+}
+
+function render(){
+  //. 車を描画
+  for( var i = 0; i < 12; i ++ ){
+    $('#car').removeClass( 'rotate' + i );
+  }
+  $('#car').addClass( 'rotate' + anglelevel );
+
+  //. 地図を移動
+  if( speed > 0 ){
+    var z = ( 3 - anglelevel ) * Math.PI / 6;
+    lat += 0.0001 * Math.sin( z );
+    lng += 0.0001 * Math.cos( z );
+    map.panTo( new L.LatLng( lat, lng ) );
+  }
+}
+
+setInterval( render, 500 );
+</script>
+<style>
+html, body  {
+	width: 100%;
+	height: 100%;
+	padding: 0px;
+	margin: 0px;
+}
+#demoMap {
+	width: 100%;
+	height: 100%;
+}
+#car{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1000;
+}
+.rotate0{
+  transform: rotate( 0deg );
+}
+.rotate1{
+  transform: rotate( 30deg );
+}
+.rotate2{
+  transform: rotate( 60deg );
+}
+.rotate3{
+  transform: rotate( 90deg );
+}
+.rotate4{
+  transform: rotate( 120deg );
+}
+.rotate5{
+  transform: rotate( 150deg );
+}
+.rotate6{
+  transform: rotate( 180deg );
+}
+.rotate7{
+  transform: rotate( 210deg );
+}
+.rotate8{
+  transform: rotate( 240deg );
+}
+.rotate9{
+  transform: rotate( 270deg );
+}
+.rotate10{
+  transform: rotate( 300deg );
+}
+.rotate11{
+  transform: rotate( 330deg );
+}
+</style>
+</head>
+<body>
+<div id="demoMap"></div>
+<img src="//4.bp.blogspot.com/-1vWMf13IxHU/Viiphwt5ZZI/AAAAAAAAz6s/Ta_uhcwxEbI/s800/topview_car.png" id="car" width="50" height="50"/>
+</body>
+</html>
+
