@@ -5,6 +5,10 @@
 [Driving in OpenStreetMap](https://github.com/dotnsf/openmap_drive) for Node-RED.
 
 
+## Flow
+
+!(https://github.com/dotnsf/openmap_drive_nodered/raw/master/imgs/openmap_drive_nodered_flow.png)
+
 
 ## Copyright
 
